@@ -22,13 +22,6 @@ rescue LoadError
   return false
 end
 
-@options = {
-  :in => Dir.getwd,
-  :out => Dir.getwd,
-  :format => ["png"],
-  :program => ["dot"]
-}
-
 def list_for_help(list_type)
   list = (list_type == :formats ? GraphViz::FORMATS : GraphViz::PROGRAMS)
   f_count=0
@@ -64,6 +57,8 @@ def stop_executing(options={})
   puts Help unless options[:no_help]
   exit
 end
+
+@options = {}
 
 # Handle command line arguments
 ARGV.each do |arg|
@@ -108,6 +103,12 @@ ARGV.each do |arg|
     stop_executing
   end
 end
+
+#set defaults if not assigned from ARGV
+@options[:in] = (FileTest.readable?(File.expand_path(File.join(Dir.getwd,"app","models"))) ? File.expand_path(File.join(Dir.getwd,"app","models")) : stop_executing) if @options[:in].nil?
+@options[:out] = (FileTest.writable?(File.expand_path(File.join(Dir.getwd))) ? File.expand_path(File.join(Dir.getwd)) : stop_executing)  if @options[:out].nil?
+@options[:format] = ["png"] if @options[:format].nil?
+@options[:program] = ["dot"] if @options[:program].nil?
 
 # dig through the model files and look for relations to other models
 model_data = []
