@@ -157,6 +157,6 @@ end
 
 @options[:program].each do |program|
   @options[:format].each do |format|
-    g.output(:output => format, :file => File.join(@options[:out],"#{program}_erd."+format), :use => program )
+    g.output(:png => File.join(@options[:out],"#{program}_erd."+format), :use => program )
   end
 end
