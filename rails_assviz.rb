@@ -107,7 +107,7 @@ end
 #set defaults if not assigned from ARGV
 @options[:in] = (FileTest.readable?(File.expand_path(File.join(Dir.getwd,"app","models"))) ? File.expand_path(File.join(Dir.getwd,"app","models")) : stop_executing) if @options[:in].nil?
 @options[:out] = (FileTest.writable?(File.expand_path(File.join(Dir.getwd))) ? File.expand_path(File.join(Dir.getwd)) : stop_executing)  if @options[:out].nil?
-@options[:format] = ["png"] if @options[:format].nil?
+@options[:format] = ['png'] if @options[:format].nil?
 @options[:program] = ["dot"] if @options[:program].nil?
 
 # dig through the model files and look for relations to other models
@@ -118,7 +118,7 @@ Dir.foreach(@options[:in]) do |file|
   nodes << file.gsub(".rb","").singularize unless file =~ /\A\.+/
   unless file =~ /\A\.\.?\Z/
     IO.readlines(File.join(@options[:in],file)).each do |line|
-      if (line =~ /\A *?((has_many)|(belongs_to)|(has_and_belongs_to_many)|(has_one))/).is_a?(Integer)
+      if (line =~ /\A *?((has_many)|(has_and_belongs_to_many)|(has_one)|(embeds_one)|(embeds_many)|(belongs_to)|(embedded_in)|(referenced_in))/).is_a?(Integer)
         edges << [file.gsub(".rb",""), line]
       end
     end
@@ -128,12 +128,13 @@ nodes.uniq!
 
 # build the edge relationships
 edges.each do |e|
-  e[1].gsub!( /\A *?((has_many)|(belongs_to)|(has_and_belongs_to_many)|(has_one)) +:(\w+).*/m, '\6%\1')
+  e[1].gsub!( /\A *?((has_many)|(has_and_belongs_to_many)|(has_one)|(embeds_one)|(embeds_many)|(belongs_to)|(embedded_in)) +:(\w+).*/m, '\9%\1')
+  e[1].gsub!( /\A *?((referenced_in)) +:(\w+).*/m, '\3%\1') #gsub doesn't like replacement patterns that reference the 10th matched set
   f = e[1].split("%")
   e[2] = f[0].gsub(".rb","").singularize
   e[1] = f[1]
 end
-edges.delete_if{|e|e[1]=="belongs_to"}
+edges.delete_if{|e|e[1]=="belongs_to" || e[1]=="embedded_in"}
 
 # put everything together with graphviz
 g = GraphViz::new( "structs", "type" => "graph", :use => "dot" )
@@ -147,12 +148,21 @@ g.node[:style] = "filled"
 g.node[:color] = "#336699"
 g.node[:fontcolor] = "#ddeeff"
 
+font_colors = {
+  "has_many" => "#AB0000",
+  "has_one" => "#FF0000",
+  "embeds_many" => "#0600FF",
+  "embeds_one" => "#00CCFF",
+  "has_and_belongs_to_many" => "#880770",
+  "default"  => "0D800D"
+}
+
 nodes.each{|node| g.add_node(node)}
 edges.each do |edge| 
   e=g.add_edge(edge[0],edge[2])
-  e.fontcolor = (edge[1] == "has_many" ? "#009900" : "#990000")
+  e.fontcolor = font_colors[edge[1]].nil? ? font_colors["default"] : font_colors[edge[1]]
   e.label=edge[1]
-  edge[1] == "has_one" ? e.arrowhead="none" : e.arrowhead="crow"
+  (edge[1] == "has_one" || edge[1] == "embeds_one") ? e.arrowhead="none" : e.arrowhead="crow"
 end
 
 @options[:program].each do |program|
