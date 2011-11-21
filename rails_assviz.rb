@@ -50,7 +50,8 @@ OPTIONS:
 #{list_for_help(:formats)}
   --program=list,of,algs      specify graphviz algorithms, comma separated:
 #{list_for_help(:programs)}
-
+  --exclude_fields            specify if model fields should be excluded
+  
 "
 
 def stop_executing(options={})
@@ -99,6 +100,8 @@ ARGV.each do |arg|
         stop_executing(:no_help=>true)
       end
     end
+  when "--exclude_fields"
+    @options[:exclude_fields] = true
   else
     stop_executing
   end
@@ -109,20 +112,26 @@ end
 @options[:out] = (FileTest.writable?(File.expand_path(File.join(Dir.getwd))) ? File.expand_path(File.join(Dir.getwd)) : stop_executing)  if @options[:out].nil?
 @options[:format] = ['png'] if @options[:format].nil?
 @options[:program] = ["dot"] if @options[:program].nil?
+@options[:exclude_fields] = false if @options[:exclude_fields].nil?
 
 # dig through the model files and look for relations to other models
 model_data = []
 nodes = []
 edges = []
 Dir.foreach(@options[:in]) do |file| 
-  nodes << file.gsub(".rb","").singularize unless file =~ /\A\.+/
   unless file =~ /\A\.\.?\Z/
+    fields = []
     IO.readlines(File.join(@options[:in],file)).each do |line|
       if (line =~ /\A *?((has_many)|(has_and_belongs_to_many)|(has_one)|(embeds_one)|(embeds_many)|(belongs_to)|(embedded_in)|(referenced_in))/).is_a?(Integer)
         edges << [file.gsub(".rb",""), line]
       end
+      if (line =~ /\A *?((field))/).is_a?(Integer)
+         line.gsub!( /\A *?((field)) +:(\w+).*/m, '\3')
+         fields << line
+      end
     end
   end
+  nodes << [file.gsub(".rb","").singularize , fields] unless file =~ /\A\.+/
 end
 nodes.uniq!
 
@@ -144,9 +153,10 @@ g[:overlap] = "false"
 g.edge[:color] = "#999999"
 g.edge[:fontname] = g.node[:fontname] = "Verdana"
 g.edge[:fontsize] = g.node[:fontsize] = "8"
-g.node[:style] = "filled"
+#g.node[:style] = "filled"
+g.node[:shape] = "record"
 g.node[:color] = "#336699"
-g.node[:fontcolor] = "#ddeeff"
+g.node[:fontcolor] = "#000000"
 
 font_colors = {
   "has_many" => "#AB0000",
@@ -157,11 +167,15 @@ font_colors = {
   "default"  => "0D800D"
 }
 
-nodes.each{|node| g.add_node(node)}
+nodes.each do |node| 
+  label = @options[:exclude_fields] ? node[0] : node[0] + ( node[1].count > 0 ?  "|" + node[1].join("|") : "")
+  g.add_node(node[0], :label => label )
+end
+
 edges.each do |edge| 
   e=g.add_edge(edge[0],edge[2])
   e.fontcolor = font_colors[edge[1]].nil? ? font_colors["default"] : font_colors[edge[1]]
-  e.label=edge[1]
+  e.label = edge[1].to_s
   (edge[1] == "has_one" || edge[1] == "embeds_one") ? e.arrowhead="none" : e.arrowhead="crow"
 end
 
