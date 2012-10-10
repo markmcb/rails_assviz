@@ -16,7 +16,7 @@ end
 
 #Checks for active_support
 begin
-  require 'active_support'
+  require 'active_support/all'
 rescue LoadError
   raise "Install the Ruby on Rails gem: gem install rails"
   return false
@@ -169,11 +169,11 @@ font_colors = {
 
 nodes.each do |node| 
   label = @options[:exclude_fields] ? node[0] : node[0] + ( node[1].count > 0 ?  "|" + node[1].join("|") : "")
-  g.add_node(node[0], :label => label )
+  g.add_nodes(node[0], :label => label )
 end
 
 edges.each do |edge| 
-  e=g.add_edge(edge[0],edge[2])
+  e=g.add_edges(edge[0],edge[2])
   e.fontcolor = font_colors[edge[1]].nil? ? font_colors["default"] : font_colors[edge[1]]
   e.label = edge[1].to_s
   (edge[1] == "has_one" || edge[1] == "embeds_one") ? e.arrowhead="none" : e.arrowhead="crow"
